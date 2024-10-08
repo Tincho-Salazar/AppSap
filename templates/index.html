@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Productos en Almacenes</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- DataTables CSS -->
+    <link href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+    <style>
+        /* Estilos personalizados */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background-color: #f8f9fa;
+        }
+
+        footer {
+            text-align: center;
+            padding: 10px;
+            color: whitesmoke;
+            background-color: #1e1e1f;
+            position: relative;
+            left: 0;
+            bottom: 0;
+            width: 100%;
+        }
+
+        body {
+            background-color: rgb(162, 165, 156);
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+        }
+
+        /* Estilos para el overlay */
+        #loadingOverlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            text-align: center;
+            color: white;
+            padding-top: 20%;
+        }
+
+        /* Ajustes de la tabla para dispositivos móviles */
+        @media (max-width: 768px) {
+            table thead {
+                font-size: 14px;
+            }
+
+            table tbody {
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Overlay de carga -->
+    <div id="loadingOverlay">
+        <div>
+            <div class="spinner-border text-light" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <h2>Actualizando...</h2>
+        </div>
+    </div>
+
+    <header>
+        <h1>Productos en Almacenes</h1>
+        <img src="{{ url_for('static', filename='png/logo.jpg') }}" alt="Logo" style="height: 56px" />
+    </header>
+
+    <div class="container my-5">
+        <div class="row mb-4 align-items-end">
+            <div class="col-md-3">
+                <label for="empresaSelect">Seleccionar Empresa:</label>
+                <select id="empresaSelect" class="form-select">
+                    <option value="BP01" {% if selected_empresa=="BP01" %}selected{% endif %}>Almacen Pindo</option>
+                    <option value="BP12" {% if selected_empresa=="BP12" %}selected{% endif %}>Almacen Eco Energia</option>
+                </select>
+                <label id="selectedLabel" class="mt-2">Seleccionado: <strong>{% if selected_empresa == "BP01" %}Almacen Pindo{% elif selected_empresa == "BP12" %}Almacen Eco Energia{% endif %}</strong></label>
+            </div>
+            <div class="col-md-2">
+                <button id="filtrarBtn" class="btn btn-primary mt-3">Filtrar</button>
+            </div>
+            <div class="col-md-2">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="ocultarSinStock" {% if ocultar_sin_stock %}checked{% endif %}>
+                    <label class="form-check-label" for="ocultarSinStock">
+                        Ocultar productos sin stock
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contenedor para hacer la tabla responsiva -->
+        <div class="table-responsive">
+            <table id="productosTable" class="table table-striped table-bordered" style="width:100%">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Código Producto</th>
+                        <th>Nombre Producto</th>
+                        <th>Stock</th>
+                        <th>Grupo</th>
+                        <th>Específico</th>
+                        <th>Descripción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for producto in productos %}
+                    <tr>
+                        <td>{{ producto['MATNR'] }}</td>
+                        <td>{{ producto['MAKTX'] }}</td>
+                        <td>{{ producto['STOCK'] }}</td>
+                        <td>{{ producto['GRUPO'] }}</td>
+                        <td>{{ producto['ESPECIFICO'] }}</td>
+                        <td>{{ producto['DESCRIPCION'] }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2024 Sistemas Pindo</p>
+    </footer>
+
+    <!-- Bootstrap Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- DataTables JS -->
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap5.min.js"></script>
+
+    <!-- Script para cargar DataTables -->
+    <script>
+        $(document).ready(function () {
+            var table = $('#productosTable').DataTable({
+                "paging": true,
+                "searching": true,
+                "ordering": true,
+                "info": true,
+                "scrollX": true,  // Habilitar scroll horizontal
+                "language": {
+                    "url": "https://cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json"
+                }
+            });
+
+            // Función para mostrar el overlay de carga
+            function mostrarOverlay() {
+                $('#loadingOverlay').fadeIn();
+            }
+
+            // Función para ocultar el overlay de carga
+            function ocultarOverlay() {
+                $('#loadingOverlay').fadeOut();
+            }
+
+            // Función para actualizar la tabla de productos
+            function actualizarTabla() {
+                var selected_empresa = $('#empresaSelect').val();
+                var ocultar_sin_stock = $('#ocultarSinStock').is(':checked') ? 1 : 0;
+
+                // Mostrar el overlay antes de realizar la petición
+                mostrarOverlay();
+
+                $.ajax({
+                    url: '/actualizar',
+                    method: 'POST',
+                    contentType: 'application/json', // Especificar que se envía JSON
+                    data: JSON.stringify({
+                        empresaSelect: selected_empresa,
+                        ocultarSinStock: ocultar_sin_stock
+                    }),
+                    success: function (data) {
+                        table.clear();
+
+                        data.productos.forEach(function (producto) {
+                            table.row.add([
+                                producto.MATNR,
+                                producto.MAKTX,
+                                producto.STOCK,
+                                producto.GRUPO,
+                                producto.ESPECIFICO,
+                                producto.DESCRIPCION
+                            ]).draw();
+                        });
+                    },
+                    error: function (xhr, status, error) {
+                        console.error("Error al actualizar la tabla: ", error);
+                        alert("Hubo un error al actualizar la tabla. Por favor, inténtelo nuevamente.");
+                    },
+                    complete: function () {
+                        // Ocultar el overlay después de actualizar la tabla o si hay error
+                        ocultarOverlay();
+                    }
+                });
+            }
+
+            // Evento para el checkbox
+            $('#ocultarSinStock').change(function () {
+                actualizarTabla();
+            });
+
+            // Evento para el botón filtrar
+            $('#filtrarBtn').click(function () {
+                actualizarTabla();
+            });
+
+            // Inicializar la tabla
+            table.draw();
+        });
+    </script>
+</body>
+
+</html>
